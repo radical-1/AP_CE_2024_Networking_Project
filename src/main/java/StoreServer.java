@@ -39,35 +39,31 @@ public class StoreServer extends Thread {
                 } else if (ValidInputs.GET_PRICE.isMatch(input)) {
                     String productName = ValidInputs.GET_PRICE.getGroup(input, "shoename");
                     if (StoreController.isValidProductName(productName)) {
-                        dataOutputStream.writeUTF(inventory.get(productName) + "has price : " + String.valueOf(StoreController.getPrice(productName)));
+                        dataOutputStream.writeUTF(productName + " has price : " + String.valueOf(StoreController.getPrice(productName)));
                     } else {
-                        dataOutputStream.writeUTF("invalid input");
+                        dataOutputStream.writeUTF("invalid product name.");
                     }
                 } else if (ValidInputs.GET_QUANTITY.isMatch(input)) {
                     String productName = ValidInputs.GET_QUANTITY.getGroup(input, "shoename");
                     if (StoreController.isValidProductName(productName)) {
-                        dataOutputStream.writeUTF(inventory.get(productName) + "has quantity : " + String.valueOf(getQuantity(productName)));
+                        dataOutputStream.writeUTF(productName + " has quantity : " + String.valueOf(getQuantity(productName)));
                     } else {
-                        dataOutputStream.writeUTF("invalid input");
+                        dataOutputStream.writeUTF("invalid product name");
                     }
                 } else if (ValidInputs.GET_MONEY.isMatch(input)) {
                     getCustomerMoney(dataOutputStream);
                 } else if (ValidInputs.CHARGE.isMatch(input)) {
                     String moneyStr = ValidInputs.CHARGE.getGroup(input, "money");
-                    if (StoreController.isValidMoney(moneyStr)) {
-                        int chargeAmount = Integer.parseInt(moneyStr);
-                        chargeCustomer(chargeAmount, dataOutputStream);
-                        dataOutputStream.writeUTF("charged successfully\nyour new balance is: " + currentCustomer.getMoney());
-                        System.out.println("customer : " +currentCustomer.getName() + " & balance : " + currentCustomer.getMoney());
-                    } else {
-                        dataOutputStream.writeUTF("invalid input\nplease enter a valid number");
-                        System.out.println("invalid input");
-                    }
+                    chargeHandler(moneyStr, dataOutputStream);
                 } else if (ValidInputs.PURCHASE.isMatch(input)) {
                     String productName = ValidInputs.PURCHASE.getGroup(input, "shoename");
                     String quantityStr = ValidInputs.PURCHASE.getGroup(input, "quantity");
                     purchaseHandler(productName, quantityStr, dataOutputStream);
                 } else if (ValidInputs.LOGOUT.isMatch(input)) {
+                     if(currentCustomer == null) {
+                         dataOutputStream.writeUTF("nobody is logged in");
+                         continue;
+                     }
                     currentCustomer = null;
                     dataOutputStream.writeUTF("logged out successfully");
                     System.out.println("logged out successfully\ncurrent customer is null");
@@ -77,6 +73,22 @@ public class StoreServer extends Thread {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void chargeHandler(String moneyStr, DataOutputStream dataOutputStream) throws IOException {
+        if(currentCustomer == null) {
+            dataOutputStream.writeUTF("please first log in and then try to charge your account.");
+            return;
+        }
+        if (StoreController.isValidMoney(moneyStr)) {
+            int chargeAmount = Integer.parseInt(moneyStr);
+            chargeCustomer(chargeAmount, dataOutputStream);
+            dataOutputStream.writeUTF("charged successfully\nyour new balance is: " + currentCustomer.getMoney());
+            System.out.println("customer : " +currentCustomer.getName() + " & balance : " + currentCustomer.getMoney());
+        } else {
+            dataOutputStream.writeUTF("invalid input\nplease enter a valid number");
+            System.out.println("invalid input");
         }
     }
 
