@@ -16,10 +16,6 @@ public class Client {
                 dataOutputStream.writeUTF(input);
                 dataOutputStream.flush();
                 System.out.println(dataInputStream.readUTF());
-                if(input.equals("exit")) {
-                    socket.close();
-                    break;
-                }
             }
         } catch (IOException e) {
             e.printStackTrace();

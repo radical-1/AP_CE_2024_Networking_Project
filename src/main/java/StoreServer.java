@@ -35,34 +35,17 @@ public class StoreServer extends Thread {
                     registerHandler(id, name, moneyStr, dataOutputStream);
                 } else if (ValidInputs.LOGIN.isMatch(input)) {
                     String id = ValidInputs.LOGIN.getGroup(input, "id");
-                    if (isValidId(id)) {
-                        currentCustomer = customers.get(id);
-                        if (currentCustomer == null) {
-                            dataOutputStream.writeUTF("customer not found");
-                            System.out.println("customer not found");
-                            continue;
-                        } else if (currentCustomer.getMoney() == 0) {
-                            dataOutputStream.writeUTF("customer has no money");
-                            System.out.println("customer has no money");
-                            continue;
-                        } else {
-                            dataOutputStream.writeUTF("logged in successfully");
-                            System.out.println("customer " + currentCustomer.getName() + " logged in");
-                        }
-                    } else {
-                        dataOutputStream.writeUTF("invalid id");
-                        System.out.println("invalid id");
-                    }
+                    loginHandler(id, dataOutputStream);
                 } else if (ValidInputs.GET_PRICE.isMatch(input)) {
                     String productName = ValidInputs.GET_PRICE.getGroup(input, "shoename");
-                    if (isValidProductName(productName)) {
-                        dataOutputStream.writeUTF(inventory.get(productName) + "has price : " + String.valueOf(getPrice(productName)));
+                    if (StoreController.isValidProductName(productName)) {
+                        dataOutputStream.writeUTF(inventory.get(productName) + "has price : " + String.valueOf(StoreController.getPrice(productName)));
                     } else {
                         dataOutputStream.writeUTF("invalid input");
                     }
                 } else if (ValidInputs.GET_QUANTITY.isMatch(input)) {
                     String productName = ValidInputs.GET_QUANTITY.getGroup(input, "shoename");
-                    if (isValidProductName(productName)) {
+                    if (StoreController.isValidProductName(productName)) {
                         dataOutputStream.writeUTF(inventory.get(productName) + "has quantity : " + String.valueOf(getQuantity(productName)));
                     } else {
                         dataOutputStream.writeUTF("invalid input");
@@ -71,7 +54,7 @@ public class StoreServer extends Thread {
                     getCustomerMoney(dataOutputStream);
                 } else if (ValidInputs.CHARGE.isMatch(input)) {
                     String moneyStr = ValidInputs.CHARGE.getGroup(input, "money");
-                    if (isValidMoney(moneyStr)) {
+                    if (StoreController.isValidMoney(moneyStr)) {
                         int chargeAmount = Integer.parseInt(moneyStr);
                         chargeCustomer(chargeAmount, dataOutputStream);
                         dataOutputStream.writeUTF("charged successfully\nyour new balance is: " + currentCustomer.getMoney());
@@ -83,27 +66,7 @@ public class StoreServer extends Thread {
                 } else if (ValidInputs.PURCHASE.isMatch(input)) {
                     String productName = ValidInputs.PURCHASE.getGroup(input, "shoename");
                     String quantityStr = ValidInputs.PURCHASE.getGroup(input, "quantity");
-                    if(!isValidProductName(productName)) {
-                        dataOutputStream.writeUTF("invalid product name");
-                        continue;
-                    } else if(!isValidQuantity(quantityStr)) {
-                        dataOutputStream.writeUTF("invalid quantity\nplease enter a valid number");
-                        continue;
-                    }
-                     else {
-                        int quantity = Integer.parseInt(quantityStr);
-                        if(currentCustomer.getMoney() < quantity * getPrice(productName)) {
-                            dataOutputStream.writeUTF("not enough money");
-                            continue;
-                        } else if(inventory.get(productName) < quantity) {
-                            dataOutputStream.writeUTF("not enough quantity");
-                            continue;
-                        } else {
-                            purchaseProduct(productName, quantity, dataOutputStream);
-                            System.out.println("customer : " + currentCustomer.getName() + " & balance : " + currentCustomer.getMoney());
-                            System.out.println("product : " + productName + " & quantity : " + inventory.get(productName));
-                        }
-                    }
+                    purchaseHandler(productName, quantityStr, dataOutputStream);
                 } else if (ValidInputs.LOGOUT.isMatch(input)) {
                     currentCustomer = null;
                     dataOutputStream.writeUTF("logged out successfully");
@@ -117,21 +80,48 @@ public class StoreServer extends Thread {
         }
     }
 
+    private void purchaseHandler(String productName, String quantityStr, DataOutputStream dataOutputStream) throws IOException {
+        if(!StoreController.isValidProductName(productName)) {
+            dataOutputStream.writeUTF("invalid product name");
+            return;
+        } else if(!StoreController.isValidQuantity(quantityStr)) {
+            dataOutputStream.writeUTF("invalid quantity\nplease enter a valid number");
+            return;
+        } else if(currentCustomer == null) {
+            dataOutputStream.writeUTF("nobody is logged in\n please first log in and then purchase");
+            return;
+        } else {
+            int quantity = Integer.parseInt(quantityStr);
+            if(currentCustomer.getMoney() < quantity * StoreController.getPrice(productName)) {
+                dataOutputStream.writeUTF("not enough money");
+                return;
+            } else if(inventory.get(productName) < quantity) {
+                dataOutputStream.writeUTF("not enough quantity");
+                return;
+            } else {
+                purchaseProduct(productName, quantity, dataOutputStream);
+            }
+        }
+    }
+
     private synchronized void registerHandler(String id, String name, String moneyStr, DataOutputStream dataOutputStream) throws IOException {
-        if(!isValidId(id)) {
-            dataOutputStream.writeUTF("invalid id");
+        if(!StoreController.isValidId(id)) {
+            dataOutputStream.writeUTF("invalid id\nplease enter a valid id");
             System.out.println("invalid id");
             return;
-        } else if(!isValidName(name)) {
-            dataOutputStream.writeUTF("name already exists, please choose another name");
+        } else if(!StoreController.isValidName(name)) {
+            dataOutputStream.writeUTF("invalid name\nplease enter a valid name");
             System.out.println("invalid name");
             return;
-        } else if(!isValidMoney(moneyStr)) {
+        } else if(!StoreController.isValidMoney(moneyStr)) {
             dataOutputStream.writeUTF("invalid money\nplease enter a valid number");
             System.out.println("invalid money");
             return;
-        }
-        else {
+        } else if(customers.containsKey(id)) {
+            dataOutputStream.writeUTF("id already exists, please choose another id");
+            System.out.println("invalid id");
+            return;
+        } else {
             int money = Integer.parseInt(moneyStr);
             customers.put(id, new Customer(name, id, money));
             dataOutputStream.writeUTF("registered successfully");
@@ -139,46 +129,31 @@ public class StoreServer extends Thread {
         }
 
     }
-
-
-    private boolean isValidId(String id) {
-        return ValidInputs.ID.isMatch(id);
-    }
-
-    private boolean isValidName(String name) {
-        return !inventory.containsKey(name);
-    }
-
-    private boolean isValidMoney(String moneyStr) {
-        return ValidInputs.MONEY.isMatch(moneyStr);
-    }
-
-    private boolean isValidProductName(String productName) {
-        for(int i = 1; i <= 4; i++) {
-            if(productName.equals("shoe" + i)) {
-                return true;
-            }
+    private void loginHandler(String id, DataOutputStream dataOutputStream) throws IOException {
+        if(!StoreController.isValidId(id)) {
+            dataOutputStream.writeUTF("invalid id\nplease enter a valid id");
+            System.out.println("invalid id");
+        } else if(customers.get(id) == null) {
+            dataOutputStream.writeUTF("customer not found");
+            System.out.println("customer not found");
+            return;
+        }else {
+            setCurrentCustomer(customers.get(id));
+            dataOutputStream.writeUTF("logged in successfully");
+            System.out.println("customer " + currentCustomer.getName() + " logged in");
         }
-        return false;
     }
-
-    private boolean isValidQuantity(String quantityStr) {
-        return ValidInputs.QUANTITY.isMatch(quantityStr);
-    }
-
     private void chargeCustomer(int chargeAmount, DataOutputStream dataOutputStream) throws IOException {
         try {
             currentCustomer.setMoney(currentCustomer.getMoney() + chargeAmount);
-            dataOutputStream.writeUTF("charged successfully");
+            dataOutputStream.writeUTF("charged successfully\nyour balance is now : " + currentCustomer.getMoney());
         } catch (Exception e) {
             dataOutputStream.writeUTF("invalid input");
         }
     }
-
-    private int getPrice(String productName) {
-        return 5;
+    private void setCurrentCustomer(Customer customer) {
+        currentCustomer = customer;
     }
-
     private int getQuantity(String productName) {
         return inventory.get(productName);
     }
@@ -187,7 +162,7 @@ public class StoreServer extends Thread {
         try {
             if (inventory.get(productName) >= quantity) {
                 inventory.put(productName, inventory.get(productName) - quantity);
-                currentCustomer.setMoney(currentCustomer.getMoney() - quantity * getPrice(productName));
+                currentCustomer.setMoney(currentCustomer.getMoney() - quantity * StoreController.getPrice(productName));
                 dataOutputStream.writeUTF("purchased successfully");
             } else {
                 dataOutputStream.writeUTF("not enough quantity");

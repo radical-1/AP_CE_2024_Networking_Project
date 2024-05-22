@@ -11,6 +11,7 @@ public enum ValidInputs {
     PURCHASE("purchase:(?<shoename>.+):(?<quantity>.+)"),
     LOGOUT("logout"),
     ID("[0-9]+"),
+    NAME("[a-zA-Z]+"),
     MONEY("[0-9]+"),
     QUANTITY("[0-9]+"),
     ;
